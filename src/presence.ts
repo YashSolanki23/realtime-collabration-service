@@ -1,11 +1,11 @@
-const onlineUsers=new Map<string,string>();
+const onlineUsers=new Set<string>();
 
-export function userOnline(userId:string,socketId:string){
-  onlineUsers.set(userId,socketId);
+export function addUser(userId:string){
+  onlineUsers.add(userId)
 }
 
-export function userOffline(userId:string){
-  onlineUsers.delete(userId);
+export function removeUser(userId:string){
+  onlineUsers.delete(userId)
 }
 
 export function getOnlineUsers(){
