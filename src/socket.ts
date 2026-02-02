@@ -1,38 +1,66 @@
-import { userOffline, userOnline, getOnlineUsers } from "./presence";
-import { Server } from "socket.io";
+import Server from "socketio"
+import {Server as Httpserver} from "http"
+import { addUser,getOnlineUser,removeUser } from "./presence.redis";
+import { Publisher, Subscriber } from "../pubsub";
 
-export function setupSocket(server: any) {
-  const io = new Server(server, {
-    cors: { origin: "*" }
+
+
+export function initSocket(server:Httpserver){
+  const io=new Server(server,{
+    cors:{
+      origin:"*"
+    }
   });
 
-  io.on("connection", socket => {
-    console.log("connected", socket.id);
+  Subscriber.subscribe("presence-events");
 
-    socket.on("user-online", (userId: string) => {
-      userOnline(userId, socket.id);
+  Subscriber.on("message",(_channel,message)=>{
+    const event=JSON.parse(message);
 
-      io.emit("presence-update", {
+    io.emit("presenct:update",{
+      userID:event.userId,
+      status:event.type,
+      onlineUser:event.onlineUser
+    })
+  })
+
+
+  io.on("connection",(socket)=>{
+    console.log("socket connected",socket.id)
+
+    socket.on("user-online",async (userId:string)=>{
+    socket.data.userId=userId
+
+    await addUser(userId)
+
+    const users=await getOnlineUser();
+
+    await Publisher.publish("presence-events",JSON.stringify({
+      type:"online",
+      userId,
+      onlineUsers:users
+    }))
+    })
+
+   
+    socket.on("disconnect",async ()=>{
+      const userId=socket.data.userId
+
+      if(!userId) return;
+
+      await removeUser(userId)
+
+      const users=getOnlineUser()
+
+      await Publisher.publish("presence-event",JSON.stringify({
+        type:"offline",
         userId,
-        status: "online",
-        onlineUsers: getOnlineUsers()
-      });
-    });
+        onlineUsers:users
+      }))
 
-    socket.on("disconnect", () => {
-      for (const [userId, sockId] of getOnlineUsers.entries()) {
-        if (sockId === socket.id) {
-          userOffline(userId);
+      console.log("Socket Disconnected",socket.id);
+    })
+  })
 
-          io.emit("presence-update", {
-            userId,
-            status: "offline",
-            onlineUsers: getOnlineUsers()
-          });
 
-          break; // ✅ stop searching
-        }
-      }
-    });
-  });
 }

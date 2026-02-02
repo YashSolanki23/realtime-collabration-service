@@ -1,10 +1,13 @@
-import app from "./app";
-import  http from "http"
-import { setupSocket } from "./socket";
+import http from "http"
+import app from "./app"
+import { initSocket } from "./socket"
 
-const server=http.createServer(app);
-setupSocket(server)
+const port=process.env.port || 4000
 
-app.listen(4002,()=>{
-  console.log(`server is running at ${4002}`)
+const server=http.createServer(app)
+
+initSocket(server)
+
+server.listen(port,()=>{
+  console.log(`real-time service is running on port ${port}`)
 })
